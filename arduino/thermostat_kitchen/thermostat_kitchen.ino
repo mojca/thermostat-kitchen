@@ -18,28 +18,97 @@ U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE); //,
 float old_temp = -273;
 float old_humidity = 0;
 
+bool onPressed, offPressed;
+bool buttonStateChanged;
+bool thermostatChanged;
+bool thermostatActive;
+
 void setup() {
-  // u8g2.begin() is required and will sent the setup/init sequence to the display
+  Serial.begin(115200);
+
+  pinMode(A6,INPUT_PULLUP);
+  pinMode(A7,INPUT_PULLUP);
+
+  pinMode(13,OUTPUT);
+
   u8g2.begin();
+  u8g2.setFont(u8g2_font_lubB12_te);
 
   if (!HS300x.begin()) {
     while (1);
   }
 }
 
+
+void readButtons() {
+  buttonStateChanged = false;
+  bool off = !digitalRead(A6);
+  if (off != offPressed) {
+    buttonStateChanged = true;
+    offPressed = off;
+  }
+  bool on = !digitalRead(A7);
+  if (on != onPressed) {
+    buttonStateChanged = true;
+    onPressed = on;
+  }
+}
+
 void loop() {
+  static long lastUpdateTimeMillis = millis();
+  readButtons();
+
+  // update display once per second, or when button state changed
+  long tm = millis();
+  if (tm-lastUpdateTimeMillis > 1000 || buttonStateChanged || thermostatChanged) {
+    updateDisplay();
+    lastUpdateTimeMillis = tm;
+  }
+  updateThermostat();
+  updateSerial();
+}
+
+void updateThermostat() {
+  bool newThermostatActive = millis()%4000>2000;
+  thermostatChanged = (newThermostatActive != thermostatActive);
+  if (thermostatChanged) {
+    thermostatActive = newThermostatActive;
+    digitalWrite(13,thermostatActive);
+  }
+}
+
+void updateSerial() {
+  if (buttonStateChanged) {
+    if (onPressed) {
+      Serial.println("Up pressed");
+    } else if (offPressed) {
+      Serial.println("Down pressed");
+    } else {
+      Serial.println("Auto");
+    }
+  }
+}
+
+
+void updateDisplay() {
   // read all the sensor values
   float temperature = HS300x.readTemperature();
   float humidity    = HS300x.readHumidity();
 
   char buffer[100];
-  snprintf(buffer, 100, "%.1f%cC/%.1f %%", temperature, '.', humidity);
-
-  // draw something on the display with the `firstPage()`/`nextPage()` loop
+  snprintf(buffer, 100, "%.1f%cC/%.1f %%\n", temperature, '.', humidity);
   u8g2.firstPage();
   do {
-    u8g2.setFont(u8g2_font_lubB12_te);
     u8g2.drawStr(0, 20, buffer);
+
+    if (onPressed) {
+      u8g2.drawStr(0,40,"On");
+    } else if (offPressed) {
+      u8g2.drawStr(0,40,"Off");
+    } else if (thermostatActive) {
+      u8g2.drawStr(0,40,"(on)");
+    } else {
+      u8g2.drawStr(0,40,"(off)");
+    }
   } while ( u8g2.nextPage() );
-  delay(1000);
 }
