@@ -11,7 +11,6 @@
 #include <U8g2lib.h>
 // HTS221 on Arduino Nano 33 BLE Sense
 #include <Arduino_HS300x.h>
-#include "wifiServer.h"
 
 // Constructor for the display
 U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE); //, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 9, /* reset=*/ 8);
@@ -42,8 +41,6 @@ void setup()
         while (1)
             ;
     }
-
-    setupWifiServer();
 }
 
 void readButtons()
@@ -110,9 +107,11 @@ void updateDisplay()
     char buffer[100];
     snprintf(buffer, 100, "%.1f%cC/%.1f %%\n", temperature, '.', humidity);
     u8g2.firstPage();
+    
     do
     {
         u8g2.drawStr(0, 20, buffer);
+        /*
 
         if (onPressed)
         {
@@ -130,7 +129,9 @@ void updateDisplay()
         {
             u8g2.drawStr(0, 40, "(off)");
         }
+        */
     } while (u8g2.nextPage());
+    
 }
 
 void loop()
@@ -147,5 +148,4 @@ void loop()
     }
     updateThermostat();
     updateSerial();
-    loopWifiServer();
 }
